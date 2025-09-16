@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>英語每週一句</title>
+
+  <!-- SweetAlert2 (用於錯誤提醒) -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    /* --- 版面樣式 (根據上傳檔案調整) --- */
+    :root {
+      --bg: #f0f8ff;
+      --accent: #ff6b6b;
+      --card-left: #4dabf7;
+      --english: #1864ab;
+      --chinese: #5f3dc4;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      padding:0;
+    }
+
+    body {
+      font-family: 'Comic Sans MS','標楷體',sans-serif;
+      background-color: var(--bg);
+      text-align: center;
+      padding: 20px;
+      background-image: url('https://img.freepik.com/free-vector/hand-drawn-school-background_23-2149464866.jpg');
+      background-size: cover;
+      background-attachment: fixed;
+      color: #333;
+      position: relative;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.15);
+      border: 5px solid var(--accent);
+      position: relative;
+    }
+
+    h1 {
+      color: var(--accent);
+      font-size: 2.4rem;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.08);
+    }
+
+    p.subtitle {
+      margin-top:0;
+      margin-bottom:18px;
+      font-size:1rem;
+      color:#444;
+    }
+
+    .phrase-card {
+      background-color: #fffacd;
+      padding: 22px;
+      border-radius: 15px;
+      margin: 18px 0;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+      border-left: 10px solid var(--card-left);
+    }
+
+    .english-phrase {
+      font-size: 2rem;
+      color: var(--english);
+      margin: 12px 0;
+      font-weight: 700;
+    }
+
+    .chinese-meaning {
+      font-size: 1.25rem;
+      color: var(--chinese);
+      margin: 10px 0;
+    }
+
+    .week-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #d0ebff;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      font-weight: bold;
+      gap: 10px;
+      flex-wrap:wrap;
+    }
+
+    .navigation {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 22px;
+      gap:12px;
+    }
+
+    button {
+      background-color: var(--card-left);
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 50px;
+      font-size: 1.05rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      font-family: 'Comic Sans MS', sans-serif;
+    }
+
+    button:hover { background-color:#228be6; transform:translateY(-2px); }
+    button:disabled { background-color:#adb5bd; cursor:not-allowed; transform:none; }
+
+    .decoration {
+      position: absolute;
+      font-size: 1.6rem;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+    .star1 { top: 24px; left: 18px; color: #ffd43b; transform: rotate(30deg); }
+    .star2 { top: 82px; right: 34px; color: #ff8787; transform: rotate(-20deg); }
+    .star3 { bottom: 72px; left: 36px; color: #74b816; transform: rotate(15deg); }
+    .star4 { bottom: 120px; right: 48px; color: #9775fa; transform: rotate(-10deg); }
+
+    .current-week {
+      background-color: #ffec99;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+
+    @media (max-width:600px){
+      .english-phrase { font-size:1.4rem; }
+      .chinese-meaning { font-size:1rem; }
+      .container { padding:18px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 裝飾符號 -->
+  <div class="decoration star1">★</div>
+  <div class="decoration star2">★</div>
+  <div class="decoration star3">★</div>
+  <div class="decoration star4">★</div>
+
+  <div class="container" role="main" aria-labelledby="main-title">
+    <h1 id="main-title">📚 英語每週一句 📚</h1>
+    <p class="subtitle">每週學一句實用英語，快樂學英文！</p>
+
+    <div class="week-info" aria-live="polite">
+      <div id="week-number"><span class="current-week">載入中...</span></div>
+      <div id="date-range">載入中...</div>
+    </div>
+
+    <div class="phrase-card" aria-labelledby="english-phrase" aria-describedby="chinese-meaning">
+      <div style="font-size:0.95rem; color:#666; font-weight:600;">本週英語句子</div>
+      <div id="english-phrase" class="english-phrase">載入中...</div>
+      <div id="chinese-meaning" class="chinese-meaning">載入中...</div>
+    </div>
+
+    <div class="navigation" role="navigation" aria-label="週次導航">
+      <button id="prev-week" aria-label="上一週">← 上一週</button>
+      <button id="next-week" aria-label="下一週">下一週 →</button>
+    </div>
+  </div>
+<script>
+  // 基準日（第1週的週日）
+  const BASE_DATE = new Date("2025-08-31"); // 第1週開始日期
+
+  // 取得當前週次（用基準日計算）
+  function getCurrentWeekNumber(today = new Date()) {
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((today - BASE_DATE) / 86400000); // 天數差
+    return Math.floor(diffDays / 7) + 1; // 每7天一週，加1當第1週
+  }
+
+  // 格式化日期
+  function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    if (isNaN(date)) return dateStr;
+    date.setHours(0, 0, 0, 0);
+    return date.toISOString().split('T')[0];
+  }
+
+  async function fetchPhrases() {
+    try {
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbzyKYp8DwIGigj323isz1X-0jY9uLJCtfZ1hMo2ZcvwFOKDgUIvP8eZSjMyLLEWTbMhXQ/exec';
+      const res = await fetch(scriptUrl, { method: 'GET', cache: 'no-cache' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('獲取數據失敗:', err);
+      Swal.fire({
+        title: '錯誤!',
+        text: '無法取得資料，請確認 Apps Script 是否已部署並允許匿名存取。',
+        icon: 'error',
+        confirmButtonText: '好'
+      });
+      return [];
+    }
+  }
+
+  function showWeek(weekIndex, phrases) {
+    if (!phrases || phrases.length === 0) return false;
+    if (weekIndex >= 0 && weekIndex < phrases.length) {
+      const phrase = phrases[weekIndex];
+
+      document.getElementById('week-number').innerHTML =
+        `<span class="current-week">第 ${phrase.week} 週</span>`;
+      document.getElementById('date-range').textContent =
+        `日期: ${formatDate(phrase.date)}`;
+      document.getElementById('english-phrase').textContent =
+        phrase.english || '（無英文內容）';
+      document.getElementById('chinese-meaning').textContent =
+        phrase.chinese || '（無中文內容）';
+
+      document.getElementById('prev-week').disabled = weekIndex === 0;
+      document.getElementById('next-week').disabled = weekIndex === phrases.length - 1;
+      return true;
+    }
+    return false;
+  }
+
+  async function main() {
+    const today = new Date();
+    const currentWeekNumber = getCurrentWeekNumber(today);
+
+    const phrases = await fetchPhrases();
+    if (!phrases || phrases.length === 0) return;
+
+    // 排序
+    phrases.sort((a, b) => (parseInt(a.week, 10) || 0) - (parseInt(b.week, 10) || 0));
+
+    // 找出對應週次
+    let currentWeekIndex = phrases.findIndex(p => parseInt(p.week, 10) === currentWeekNumber);
+    if (currentWeekIndex === -1) currentWeekIndex = phrases.length - 1;
+
+    showWeek(currentWeekIndex, phrases);
+
+    document.getElementById('prev-week').addEventListener('click', () => {
+      if (currentWeekIndex > 0) showWeek(--currentWeekIndex, phrases);
+    });
+
+    document.getElementById('next-week').addEventListener('click', () => {
+      if (currentWeekIndex < phrases.length - 1) showWeek(++currentWeekIndex, phrases);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', main);
+</script>
+
+
+</body>
+</html>
