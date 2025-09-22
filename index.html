@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>英語每週一句</title>
 
-  <!-- SweetAlert2 (用於錯誤提醒) -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
@@ -70,19 +69,23 @@
       border-left: 10px solid var(--card-left);
     }
 
-    .english-phrase {
-      font-size: 2rem;
-      color: var(--english);
+    .english-phrase, .chinese-meaning {
+      /* 調整字體大小以適應更多文字 */
+      font-size: 1rem;
+      /* 讓文字可以換行 */
+      white-space: pre-line;
       margin: 12px 0;
       font-weight: 400;
+      text-align: left; /* 讓多行文字更易讀 */
+    }
+
+    .english-phrase {
+      color: var(--english);
     }
 
     .chinese-meaning {
-      font-size: 1.25rem;
       color: var(--chinese);
-      margin: 10px 0;
     }
-
     .week-info {
       display: flex;
       justify-content: space-between;
@@ -138,14 +141,13 @@
     }
 
     @media (max-width:600px){
-      .english-phrase { font-size:1.4rem; }
-      .chinese-meaning { font-size:1rem; }
+      .english-phrase { font-size:1.2rem; }
+      .chinese-meaning { font-size:0.9rem; }
       .container { padding:18px; }
     }
   </style>
 </head>
 <body>
-  <!-- 裝飾符號 -->
   <div class="decoration star1">★</div>
   <div class="decoration star2">★</div>
   <div class="decoration star3">★</div>
@@ -170,7 +172,13 @@
       <button id="prev-week" aria-label="上一週">← 上一週</button>
       <button id="next-week" aria-label="下一週">下一週 →</button>
     </div>
+
+    <div style="margin-top: 20px;">
+      <a href="https://clive520-lyps.github.io/web/index.html" target="_blank" style="text-decoration: none; color: #4dabf7; font-weight: bold;">開新視窗</a>
+    </div>
+
   </div>
+
 <script>
   // 基準日（第1週的週日）
   const BASE_DATE = new Date("2025-08-31"); // 第1週開始日期
@@ -183,13 +191,15 @@
   }
 
   // 格式化日期
-  function formatDate(dateStr) {
-    const date = new Date(dateStr);
-    if (isNaN(date)) return dateStr;
-    date.setHours(0, 0, 0, 0);
-    return date.toISOString().split('T')[0];
+  function formatDate(date) {
+    if (isNaN(date)) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
+  // 從Google Apps Script獲取資料
   async function fetchPhrases() {
     try {
       const scriptUrl = 'https://script.google.com/macros/s/AKfycbzyKYp8DwIGigj323isz1X-0jY9uLJCtfZ1hMo2ZcvwFOKDgUIvP8eZSjMyLLEWTbMhXQ/exec';
@@ -209,6 +219,7 @@
     }
   }
 
+  // 顯示特定週次的句子
   function showWeek(weekIndex, phrases) {
     if (!phrases || phrases.length === 0) return false;
     if (weekIndex >= 0 && weekIndex < phrases.length) {
@@ -216,13 +227,18 @@
 
       document.getElementById('week-number').innerHTML =
         `<span class="current-week">第 ${phrase.week} 週</span>`;
-      document.getElementById('date-range').textContent =
-        `日期: ${formatDate(phrase.date)}`;
-      document.getElementById('english-phrase').textContent =
-        phrase.english || '（無英文內容）';
-      document.getElementById('chinese-meaning').textContent =
-        phrase.chinese || '（無中文內容）';
 
+      // 這裡修改為顯示今天的日期
+      const today = new Date();
+      document.getElementById('date-range').textContent = `日期: ${formatDate(today)}`;
+      
+      // 使用 replace(/\\n/g, '\n') 來處理換行符號
+      document.getElementById('english-phrase').textContent =
+        (phrase.english || '（無英文內容）').replace(/\\n/g, '\n');
+      document.getElementById('chinese-meaning').textContent =
+        (phrase.chinese || '（無中文內容）').replace(/\\n/g, '\n');
+
+      // 禁用導航按鈕
       document.getElementById('prev-week').disabled = weekIndex === 0;
       document.getElementById('next-week').disabled = weekIndex === phrases.length - 1;
       return true;
@@ -230,6 +246,7 @@
     return false;
   }
 
+  // 程式主體
   async function main() {
     const today = new Date();
     const currentWeekNumber = getCurrentWeekNumber(today);
@@ -246,6 +263,7 @@
 
     showWeek(currentWeekIndex, phrases);
 
+    // 設定按鈕事件
     document.getElementById('prev-week').addEventListener('click', () => {
       if (currentWeekIndex > 0) showWeek(--currentWeekIndex, phrases);
     });
