@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>網站連結</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            color: #5a5a5a;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            text-align: left;
+        }
+
+        li {
+            margin-bottom: 10px;
+            padding: 12px;
+            background-color: #e9ecef;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+        }
+
+        li:hover {
+            background-color: #dee2e6;
+            transition: background-color 0.3s;
+        }
+
+        .link-number {
+            font-weight: bold;
+            margin-right: 15px;
+            color: #495057;
+        }
+
+        a {
+            text-decoration: none;
+            color: #007bff;
+            font-size: 1.1em;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        a:visited {
+            color: #8a2be2;
+        }
+
+        #loading {
+            font-size: 1.2em;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>網站連結</h1>
+        <div id="loading">讀取中...</div>
+        <ul id="link-list">
+            <!-- 連結將由 JavaScript 動態生成 -->
+        </ul>
+    </div>
+
+    <script>
+        // 將此 URL 替換為您部署 Apps Script 網頁應用程式後的 URL
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTois2rMPMd57l5WG62_e_mqZA4-mbNwQp0DxAAqyrztMQrRo6JVUMwtGp7LrQtIeM/exec'; 
+
+        const linkList = document.getElementById('link-list');
+        const loadingMessage = document.getElementById('loading');
+
+        // 檢查 URL 是否已替換
+        if (APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_URL_HERE')) {
+            loadingMessage.textContent = '請在程式碼中替換 Apps Script 的 URL。';
+        } else {
+            // 使用 fetch API 從 Apps Script 獲取 JSON 資料
+            fetch(APPS_SCRIPT_URL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('網路回應有問題');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    loadingMessage.style.display = 'none'; // 隱藏讀取訊息
+                    
+                    if (data.length === 0) {
+                        loadingMessage.style.display = 'block';
+                        loadingMessage.textContent = '試算表中沒有資料。';
+                        return;
+                    }
+
+                    // 循環資料並生成連結
+                    data.forEach(row => {
+                        const index = row[0];
+                        const name = row[1];
+                        let url = row[2];
+
+                        if (name && url) {
+                            if (!url.match(/^https?:\/\//)) {
+                                url = 'https://' + url;
+                            }
+
+                            const listItem = document.createElement('li');
+                            listItem.innerHTML = `<span class="link-number">${index}.</span> <a href="${url}" target="_blank">${name}</a>`;
+                            linkList.appendChild(listItem);
+                        }
+                    });
+                })
+                .catch(error => {
+                    loadingMessage.style.display = 'block';
+                    loadingMessage.textContent = '讀取資料時發生錯誤：' + error.message;
+                    console.error('Fetch Error:', error);
+                });
+        }
+    </script>
+</body>
+</html>
