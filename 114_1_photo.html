@@ -51,7 +51,7 @@
         #link-list {
             position: relative;
             overflow: hidden; /* 隱藏未顯示的頁面 */
-            height: 380px; /* 調整高度以確保 5 行內容不會被截斷 (修復高度不足問題) */
+            height: 380px; /* 調整高度以確保 5 行內容不會被截斷 */
         }
         
         .page-container {
@@ -234,8 +234,8 @@
                 </div>
             
             <div class="pagination-controls">
-                <span id="prev-btn" class="arrow disabled" onclick="changePage(-1)">&lt;</span>
-                <span id="next-btn" class="arrow" onclick="changePage(1)">&gt;</span>
+                <span id="prev-btn" class="arrow disabled" onclick="manualChangePage(-1)">&lt;</span>
+                <span id="next-btn" class="arrow" onclick="manualChangePage(1)">&gt;</span>
             </div>
         </div>
         
@@ -255,12 +255,17 @@
         const nextBtn = document.getElementById('next-btn');
         const pageDots = document.getElementById('page-dots');
         
-        const LINKS_PER_PAGE = 10; // 每頁顯示 10 個連結 (5 行 x 2 欄)
+        const LINKS_PER_PAGE = 10; // 每頁顯示 10 個連結
+        const AUTO_SLIDE_INTERVAL = 5000; // 自動翻頁間隔 (5000 毫秒 = 5 秒)
+        
         let allData = [];
         let currentPage = 0;
         let totalPages = 0;
+        let autoSlideTimer; // 用於儲存自動播放計時器的變數
 
-        // 繪製單一頁面的連結
+        /**
+         * 繪製單一頁面的連結
+         */
         function renderPage(pageIndex) {
             const start = pageIndex * LINKS_PER_PAGE;
             const end = start + LINKS_PER_PAGE;
@@ -294,7 +299,9 @@
             pageContainer.appendChild(pageDiv);
         }
 
-        // 更新翻頁按鈕和頁碼點點的狀態
+        /**
+         * 更新翻頁按鈕和頁碼點點的狀態
+         */
         function updateControls() {
             prevBtn.classList.toggle('disabled', currentPage === 0);
             nextBtn.classList.toggle('disabled', currentPage === totalPages - 1 || totalPages === 0);
@@ -307,12 +314,18 @@
                 if (i === currentPage) {
                     dot.classList.add('active');
                 }
-                dot.onclick = () => goToPage(i);
+                // 點擊點點時暫停自動播放
+                dot.onclick = () => {
+                    stopAutoSlide();
+                    goToPage(i);
+                };
                 pageDots.appendChild(dot);
             }
         }
 
-        // 切換頁面
+        /**
+         * 切換頁面 (核心邏輯)
+         */
         function goToPage(pageIndex) {
             if (pageIndex < 0 || pageIndex >= totalPages) return;
             
@@ -322,12 +335,53 @@
             updateControls();
         }
 
-        // 左右翻頁 (增減頁碼)
-        function changePage(delta) {
+        /**
+         * 自動翻頁邏輯：循環到下一頁
+         */
+        function nextSlide() {
+            const nextIndex = (currentPage + 1) % totalPages; // 循環到下一頁
+            goToPage(nextIndex);
+        }
+
+        /**
+         * 啟動自動翻頁
+         */
+        function startAutoSlide() {
+            if (totalPages > 1) {
+                // 如果已經有計時器，先清除
+                if (autoSlideTimer) {
+                    clearInterval(autoSlideTimer);
+                }
+                // 設定新的計時器
+                autoSlideTimer = setInterval(nextSlide, AUTO_SLIDE_INTERVAL);
+            }
+        }
+        
+        /**
+         * 停止自動翻頁
+         */
+        function stopAutoSlide() {
+            if (autoSlideTimer) {
+                clearInterval(autoSlideTimer);
+                autoSlideTimer = null;
+            }
+        }
+
+        /**
+         * 手動翻頁 (左右箭頭)
+         */
+        function manualChangePage(delta) {
+            stopAutoSlide(); // 手動操作後停止自動播放
             goToPage(currentPage + delta);
         }
 
-        // 主要資料讀取函數
+        // 將手動翻頁函數暴露給 HTML 元素的 onclick 屬性
+        window.manualChangePage = manualChangePage;
+
+
+        /**
+         * 主要資料讀取函數
+         */
         function fetchAndRenderLinks() {
             if (APPS_SCRIPT_URL.includes('YOUR_APPS_SCRIPT_WEB_APP_URL_HERE')) {
                 loadingMessage.textContent = '請在程式碼中替換 Apps Script 的 URL。';
@@ -363,6 +417,9 @@
                     
                     // 顯示第一頁並更新控制項
                     goToPage(0);
+                    
+                    // 開始自動翻頁
+                    startAutoSlide();
 
                 })
                 .catch(error => {
