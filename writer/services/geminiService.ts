@@ -2,7 +2,7 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { EssayConfig, EssayGenre } from "../types";
 import { base64ToUint8Array } from "../utils/audioUtils";
 
-const API_KEY = process.env.API_KEY || '';
+const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 // Initialize Gemini Client
 // Note: We create a new instance per call in complex apps, but here a singleton or function-scoped instance is fine.
