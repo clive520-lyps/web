@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Galactic Bee Defense</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- React & ReactDOM (UMD) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel Standalone -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #0f172a;
+        color: white;
+        overflow: hidden;
+        user-select: none;
+      }
+      .retro-font {
+        font-family: 'Press Start 2P', cursive;
+      }
+      canvas {
+        image-rendering: pixelated;
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 1. Load Google GenAI SDK and expose to window -->
+    <script type="module">
+      import { GoogleGenAI } from "https://esm.run/@google/genai";
+      window.GoogleGenAI = GoogleGenAI;
+    </script>
+
+    <!-- 2. Main Application Script -->
+    <script type="text/babel" data-presets="typescript,react">
+      /*******************************************************
+       * CONFIGURATION
+       *******************************************************/
+      // TODO: PASTE YOUR GOOGLE GENAI API KEY HERE TO ENABLE BATTLE REPORTS
+      const API_KEY = ""; 
+      
+      // Polyfill for process.env
+      window.process = {
+        env: {
+          API_KEY: API_KEY
+        }
+      };
+
+      /*******************************************************
+       * ICONS (Inline to avoid dependencies)
+       *******************************************************/
+      const Rocket = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+      );
+      const Play = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      );
+      const RotateCcw = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      );
+      const Trophy = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 1 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+      );
+      const Loader2 = ({ className }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      );
+
+      /*******************************************************
+       * TYPES & CONSTANTS
+       *******************************************************/
+      const GameStatus = {
+        MENU: 'MENU',
+        PLAYING: 'PLAYING',
+        GAME_OVER: 'GAME_OVER'
+      };
+
+      const GAME_WIDTH = 800;
+      const GAME_HEIGHT = 600;
+      const PLAYER_SPEED = 300;
+      const BULLET_SPEED = 500;
+      const ENEMY_SPEED = 60;
+      const ENEMY_DROP_DISTANCE = 20;
+      const SHOOT_COOLDOWN = 0.25;
+
+      const PLAYER_SIZE = { width: 40, height: 40 };
+      const ENEMY_SIZE = { width: 30, height: 30 };
+      const BULLET_SIZE = { width: 4, height: 12 };
+
+      const COLORS = {
+        PLAYER: '#3b82f6',
+        PLAYER_BULLET: '#60a5fa',
+        ENEMY_BULLET: '#f87171',
+        BEE: '#fbbf24',
+        HORNET: '#f97316',
+        QUEEN: '#ef4444',
+        PARTICLE: '#fef08a'
+      };
+
+      const SPAWN_GRID = {
+        rows: 4,
+        cols: 8,
+        spacingX: 60,
+        spacingY: 50,
+        startX: 100,
+        startY: 80
+      };
+
+      /*******************************************************
+       * SERVICES
+       *******************************************************/
+      const generateBattleReport = async (score) => {
+        const apiKey = window.process?.env?.API_KEY;
+        
+        if (!apiKey) {
+          return "Mission Control: Secure line unavailable. (API Key missing in index.html)";
+        }
+
+        if (!window.GoogleGenAI) {
+          return "Mission Control: AI Uplink Module not loaded.";
+        }
+
+        try {
+          const ai = new window.GoogleGenAI({ apiKey });
+          const model = 'gemini-2.5-flash';
+
+          let prompt = "";
+          if (score < 500) {
+            prompt = `You are a sarcastic space commander debriefing a rookie pilot who just failed miserably in the "Galactic Bee Defense" simulator. The score was only ${score}. Write a short, funny, 2-sentence disappointment log.`;
+          } else if (score < 2000) {
+            prompt = `You are a space commander debriefing a pilot. They did okay in "Galactic Bee Defense" with a score of ${score}. Write a short, 2-sentence encouraging but firm log.`;
+          } else {
+            prompt = `You are an ecstatic space commander. The pilot is a legend! They scored ${score} in "Galactic Bee Defense". Write a short, high-energy 2-sentence commendation.`;
+          }
+
+          const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+          });
+
+          return response.text || "Transmission garbled...";
+        } catch (error) {
+          console.error("Gemini API Error:", error);
+          return "Mission Control: Subspace interference preventing detailed report.";
+        }
+      };
+
+      /*******************************************************
+       * COMPONENTS
+       *******************************************************/
+      
+      // --- GameOverlay ---
+      const GameOverlay = ({ status, score, onStart, report, isGeneratingReport }) => {
+        if (status === GameStatus.PLAYING) return null;
+
+        return (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm p-8 text-center animate-in fade-in duration-300">
+            
+            {status === GameStatus.MENU && (
+              <div className="space-y-8 max-w-md">
+                <h1 className="text-4xl md:text-6xl text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 to-orange-600 retro-font leading-relaxed filter drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]">
+                  GALACTIC<br/>BEE DEFENSE
+                </h1>
+                <p className="text-slate-300 font-mono text-sm md:text-base leading-relaxed">
+                  Defend Earth from the buzzing menace. Use <strong className="text-white">LEFT/RIGHT ARROWS</strong> to move and <strong className="text-white">SPACE</strong> to shoot.
+                </p>
+                <button 
+                  onClick={onStart}
+                  className="group relative inline-flex items-center gap-3 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-full transition-all transform hover:scale-105 hover:shadow-[0_0_20px_rgba(79,70,229,0.5)]"
+                >
+                  <Play className="w-5 h-5 fill-current" />
+                  <span className="tracking-wider">LAUNCH MISSION</span>
+                </button>
+              </div>
+            )}
+
+            {status === GameStatus.GAME_OVER && (
+              <div className="space-y-6 max-w-lg w-full">
+                <h2 className="text-5xl text-red-500 retro-font drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]">
+                  GAME OVER
+                </h2>
+                
+                <div className="bg-slate-800/50 border border-slate-700 p-6 rounded-lg backdrop-blur-md">
+                  <div className="flex items-center justify-center gap-3 mb-4">
+                    <Trophy className="w-6 h-6 text-yellow-400" />
+                    <span className="text-2xl font-bold text-white tracking-widest">{score}</span>
+                  </div>
+
+                  <div className="min-h-[80px] flex items-center justify-center text-left bg-black/40 p-4 rounded border border-slate-700/50">
+                    {isGeneratingReport ? (
+                      <div className="flex items-center gap-2 text-indigo-400">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="text-sm font-mono animate-pulse">Decoding Commander's Log...</span>
+                      </div>
+                    ) : (
+                      <p className="text-indigo-200 font-mono text-sm italic border-l-2 border-indigo-500 pl-3">
+                        "{report}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <button 
+                  onClick={onStart}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black hover:bg-gray-200 font-bold rounded-full transition-colors font-mono"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  RETRY MISSION
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      // --- GameCanvas ---
+      const GameCanvas = ({ onGameOver, onScoreUpdate }) => {
+        const canvasRef = React.useRef(null);
+        const requestRef = React.useRef(0);
+        const keysPressed = React.useRef({});
+        
+        const stateRef = React.useRef({
+          player: {
+            id: 'player',
+            position: { x: GAME_WIDTH / 2 - PLAYER_SIZE.width / 2, y: GAME_HEIGHT - 60 },
+            width: PLAYER_SIZE.width,
+            height: PLAYER_SIZE.height,
+            velocity: { x: 0, y: 0 },
+            color: COLORS.PLAYER,
+            markedForDeletion: false,
+            cooldown: 0
+          },
+          bullets: [],
+          enemies: [],
+          particles: [],
+          score: 0,
+          lastTime: 0,
+          enemyDirection: 1,
+          gameOver: false
+        });
+
+        // Initialize Enemies
+        const initEnemies = () => {
+          const enemies = [];
+          for (let row = 0; row < SPAWN_GRID.rows; row++) {
+            for (let col = 0; col < SPAWN_GRID.cols; col++) {
+              const type = row === 0 ? 'QUEEN' : row === 1 ? 'HORNET' : 'BEE';
+              const color = type === 'QUEEN' ? COLORS.QUEEN : type === 'HORNET' ? COLORS.HORNET : COLORS.BEE;
+              const scoreValue = type === 'QUEEN' ? 300 : type === 'HORNET' ? 200 : 100;
+              
+              enemies.push({
+                id: `enemy-${row}-${col}`,
+                position: {
+                  x: SPAWN_GRID.startX + col * SPAWN_GRID.spacingX,
+                  y: SPAWN_GRID.startY + row * SPAWN_GRID.spacingY
+                },
+                width: ENEMY_SIZE.width,
+                height: ENEMY_SIZE.height,
+                velocity: { x: ENEMY_SPEED, y: 0 },
+                color,
+                markedForDeletion: false,
+                type,
+                scoreValue,
+                wobbleOffset: Math.random() * Math.PI * 2
+              });
+            }
+          }
+          return enemies;
+        };
+
+        const createExplosion = (x, y, color) => {
+          const particles = [];
+          for (let i = 0; i < 8; i++) {
+            const angle = (Math.PI * 2 / 8) * i;
+            const speed = Math.random() * 100 + 50;
+            particles.push({
+              id: `p-${Date.now()}-${i}`,
+              position: { x, y },
+              width: 3,
+              height: 3,
+              velocity: {
+                x: Math.cos(angle) * speed,
+                y: Math.sin(angle) * speed
+              },
+              color: color,
+              markedForDeletion: false,
+              life: 1.0,
+              maxLife: 1.0
+            });
+          }
+          return particles;
+        };
+
+        const checkCollision = (rect1, rect2) => {
+          return (
+            rect1.x < rect2.x + rect2.w &&
+            rect1.x + rect1.w > rect2.x &&
+            rect1.y < rect2.y + rect2.h &&
+            rect1.y + rect1.h > rect2.y
+          );
+        };
+
+        const update = (time) => {
+          const state = stateRef.current;
+          if (state.gameOver) return;
+
+          const dt = (time - state.lastTime) / 1000;
+          state.lastTime = time;
+
+          // Player Movement
+          if (keysPressed.current['ArrowLeft']) {
+            state.player.position.x -= PLAYER_SPEED * dt;
+          }
+          if (keysPressed.current['ArrowRight']) {
+            state.player.position.x += PLAYER_SPEED * dt;
+          }
+          state.player.position.x = Math.max(0, Math.min(GAME_WIDTH - state.player.width, state.player.position.x));
+
+          // Player Shooting
+          if (state.player.cooldown > 0) state.player.cooldown -= dt;
+          if (keysPressed.current[' '] && state.player.cooldown <= 0) {
+            state.bullets.push({
+              id: `bullet-${Date.now()}`,
+              position: { 
+                x: state.player.position.x + state.player.width / 2 - BULLET_SIZE.width / 2, 
+                y: state.player.position.y 
+              },
+              width: BULLET_SIZE.width,
+              height: BULLET_SIZE.height,
+              velocity: { x: 0, y: -BULLET_SPEED },
+              color: COLORS.PLAYER_BULLET,
+              markedForDeletion: false,
+              owner: 'PLAYER'
+            });
+            state.player.cooldown = SHOOT_COOLDOWN;
+          }
+
+          // Enemies
+          let hitEdge = false;
+          let lowestEnemyY = 0;
+
+          state.enemies.forEach(enemy => {
+            enemy.position.x += state.enemyDirection * ENEMY_SPEED * dt;
+            enemy.position.y += Math.sin(time / 200 + enemy.wobbleOffset) * 0.5;
+
+            if (enemy.position.x <= 0 || enemy.position.x + enemy.width >= GAME_WIDTH) {
+              hitEdge = true;
+            }
+            lowestEnemyY = Math.max(lowestEnemyY, enemy.position.y + enemy.height);
+
+            // Random Shoot
+            if (Math.random() < 0.0005) {
+               state.bullets.push({
+                id: `e-bullet-${enemy.id}-${Date.now()}`,
+                position: { 
+                  x: enemy.position.x + enemy.width / 2, 
+                  y: enemy.position.y + enemy.height 
+                },
+                width: BULLET_SIZE.width,
+                height: BULLET_SIZE.height,
+                velocity: { x: 0, y: BULLET_SPEED * 0.6 },
+                color: COLORS.ENEMY_BULLET,
+                markedForDeletion: false,
+                owner: 'ENEMY'
+              });
+            }
+          });
+
+          if (hitEdge) {
+            state.enemyDirection *= -1;
+            state.enemies.forEach(enemy => {
+              enemy.position.y += ENEMY_DROP_DISTANCE;
+            });
+          }
+
+          if (lowestEnemyY >= state.player.position.y) {
+            state.gameOver = true;
+            onGameOver(state.score);
+            return;
+          }
+
+          if (state.enemies.length === 0) {
+              state.enemies = initEnemies();
+          }
+
+          // Bullets
+          state.bullets.forEach(bullet => {
+            bullet.position.y += bullet.velocity.y * dt;
+            if (bullet.position.y < 0 || bullet.position.y > GAME_HEIGHT) {
+              bullet.markedForDeletion = true;
+            }
+          });
+
+          // Collisions
+          state.bullets.forEach(bullet => {
+            if (bullet.markedForDeletion) return;
+
+            if (bullet.owner === 'PLAYER') {
+              state.enemies.forEach(enemy => {
+                if (enemy.markedForDeletion) return;
+                if (checkCollision(
+                  {x: bullet.position.x, y: bullet.position.y, w: bullet.width, h: bullet.height},
+                  {x: enemy.position.x, y: enemy.position.y, w: enemy.width, h: enemy.height}
+                )) {
+                  enemy.markedForDeletion = true;
+                  bullet.markedForDeletion = true;
+                  state.score += enemy.scoreValue;
+                  onScoreUpdate(state.score);
+                  state.particles.push(...createExplosion(enemy.position.x + enemy.width/2, enemy.position.y + enemy.height/2, enemy.color));
+                }
+              });
+            } else {
+              if (checkCollision(
+                  {x: bullet.position.x, y: bullet.position.y, w: bullet.width, h: bullet.height},
+                  {x: state.player.position.x, y: state.player.position.y, w: state.player.width, h: state.player.height}
+              )) {
+                  state.gameOver = true;
+                  bullet.markedForDeletion = true;
+                  state.particles.push(...createExplosion(state.player.position.x + state.player.width/2, state.player.position.y + state.player.height/2, COLORS.PLAYER));
+                  onGameOver(state.score);
+              }
+            }
+          });
+
+          // Particles
+          state.particles.forEach(p => {
+              p.life -= dt * 2; 
+              p.position.x += p.velocity.x * dt;
+              p.position.y += p.velocity.y * dt;
+              if (p.life <= 0) p.markedForDeletion = true;
+          });
+
+          state.bullets = state.bullets.filter(b => !b.markedForDeletion);
+          state.enemies = state.enemies.filter(e => !e.markedForDeletion);
+          state.particles = state.particles.filter(p => !p.markedForDeletion);
+        };
+
+        const draw = (ctx) => {
+          ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+          const state = stateRef.current;
+
+          if (!state.gameOver) {
+            ctx.fillStyle = state.player.color;
+            ctx.beginPath();
+            ctx.moveTo(state.player.position.x + state.player.width / 2, state.player.position.y);
+            ctx.lineTo(state.player.position.x + state.player.width, state.player.position.y + state.player.height);
+            ctx.lineTo(state.player.position.x + state.player.width / 2, state.player.position.y + state.player.height - 10);
+            ctx.lineTo(state.player.position.x, state.player.position.y + state.player.height);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          state.enemies.forEach(enemy => {
+            ctx.fillStyle = enemy.color;
+            const x = enemy.position.x;
+            const y = enemy.position.y;
+            const w = enemy.width;
+            const h = enemy.height;
+            
+            ctx.fillRect(x + w * 0.25, y, w * 0.5, h);
+            const wingFlap = Math.sin(Date.now() / 100) * 5;
+            ctx.fillStyle = '#ffffffaa';
+            ctx.beginPath();
+            ctx.moveTo(x + w * 0.25, y + h * 0.3);
+            ctx.lineTo(x - 5, y + h * 0.1 + wingFlap);
+            ctx.lineTo(x + w * 0.25, y + h * 0.6);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(x + w * 0.75, y + h * 0.3);
+            ctx.lineTo(x + w + 5, y + h * 0.1 + wingFlap);
+            ctx.lineTo(x + w * 0.75, y + h * 0.6);
+            ctx.fill();
+          });
+
+          state.bullets.forEach(bullet => {
+            ctx.fillStyle = bullet.color;
+            ctx.fillRect(bullet.position.x, bullet.position.y, bullet.width, bullet.height);
+          });
+
+          state.particles.forEach(p => {
+              ctx.fillStyle = p.color;
+              ctx.globalAlpha = p.life;
+              ctx.fillRect(p.position.x, p.position.y, p.width, p.height);
+              ctx.globalAlpha = 1.0;
+          });
+        };
+
+        const loop = React.useCallback((time) => {
+          update(time);
+          const canvas = canvasRef.current;
+          if (canvas) {
+              const ctx = canvas.getContext('2d');
+              if (ctx) draw(ctx);
+          }
+          requestRef.current = requestAnimationFrame(loop);
+        }, []);
+
+        React.useEffect(() => {
+          stateRef.current.enemies = initEnemies();
+          stateRef.current.score = 0;
+          stateRef.current.gameOver = false;
+          stateRef.current.lastTime = performance.now();
+          stateRef.current.particles = [];
+          stateRef.current.bullets = [];
+
+          requestRef.current = requestAnimationFrame(loop);
+
+          const handleKeyDown = (e) => {
+            keysPressed.current[e.key] = true;
+          };
+          const handleKeyUp = (e) => {
+            keysPressed.current[e.key] = false;
+          };
+
+          window.addEventListener('keydown', handleKeyDown);
+          window.addEventListener('keyup', handleKeyUp);
+
+          return () => {
+            cancelAnimationFrame(requestRef.current);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+          };
+        }, [loop]);
+
+        return (
+          <canvas
+            ref={canvasRef}
+            width={GAME_WIDTH}
+            height={GAME_HEIGHT}
+            className="w-full h-full object-contain bg-black"
+          />
+        );
+      };
+
+      // --- App ---
+      const App = () => {
+        const [status, setStatus] = React.useState(GameStatus.MENU);
+        const [score, setScore] = React.useState(0);
+        const [finalReport, setFinalReport] = React.useState('');
+        const [isGeneratingReport, setIsGeneratingReport] = React.useState(false);
+
+        const startGame = () => {
+          setScore(0);
+          setStatus(GameStatus.PLAYING);
+          setFinalReport('');
+        };
+
+        const endGame = async (finalScore) => {
+          setStatus(GameStatus.GAME_OVER);
+          setScore(finalScore);
+          setIsGeneratingReport(true);
+          
+          try {
+            const report = await generateBattleReport(finalScore);
+            setFinalReport(report);
+          } catch (error) {
+            console.error("Failed to generate report", error);
+            setFinalReport("Communication link severed. No battle report available.");
+          } finally {
+            setIsGeneratingReport(false);
+          }
+        };
+
+        return (
+          <div className="relative w-full h-screen bg-slate-900 overflow-hidden flex flex-col items-center justify-center">
+            
+            <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900 via-slate-900 to-black"></div>
+
+            <div className="z-10 w-full max-w-4xl h-full max-h-[900px] relative aspect-[3/4] md:aspect-[4/3] shadow-2xl rounded-lg overflow-hidden border-4 border-slate-800 bg-black">
+              
+              <div className="absolute top-0 left-0 w-full h-16 bg-slate-900/80 border-b border-slate-700 flex justify-between items-center px-6 z-20 backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-yellow-400">
+                  <Rocket className="w-6 h-6" />
+                  <span className="retro-font text-xs md:text-sm tracking-widest">GALACTIC BEE</span>
+                </div>
+                <div className="text-white retro-font text-xs md:text-sm">
+                  SCORE: <span className="text-green-400">{score.toString().padStart(6, '0')}</span>
+                </div>
+              </div>
+
+              {status === GameStatus.PLAYING ? (
+                <GameCanvas onGameOver={endGame} onScoreUpdate={setScore} />
+              ) : null}
+
+              {status !== GameStatus.PLAYING && (
+                <GameOverlay 
+                  status={status} 
+                  score={score} 
+                  onStart={startGame} 
+                  report={finalReport}
+                  isGeneratingReport={isGeneratingReport}
+                />
+              )}
+            </div>
+          </div>
+        );
+      };
+
+      /*******************************************************
+       * MOUNT
+       *******************************************************/
+      const rootElement = document.getElementById('root');
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
